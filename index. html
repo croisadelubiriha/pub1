@@ -1,0 +1,734 @@
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import urllib.parse
+
+PORT = 8080
+
+ADMIN_USER = "kingereki"
+ADMIN_PASS = "alkinge@"
+
+
+STYLE = """
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
+    color: #222;
+}
+
+header {
+    background: #123c69;
+    color: white;
+    text-align: center;
+    padding: 25px 10px;
+}
+
+nav {
+    background: white;
+    padding: 12px;
+    text-align: center;
+}
+
+nav a {
+    display: inline-block;
+    margin: 4px;
+    padding: 9px;
+    text-decoration: none;
+    color: #123c69;
+    font-weight: bold;
+}
+
+main {
+    max-width: 850px;
+    margin: auto;
+    padding: 20px;
+}
+
+.card {
+    background: white;
+    padding: 20px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+    box-shadow: 0 2px 7px #ccc;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0 15px;
+    box-sizing: border-box;
+}
+
+button {
+    background: #123c69;
+    color: white;
+    border: none;
+    padding: 12px 18px;
+    border-radius: 6px;
+}
+
+footer {
+    background: #123c69;
+    color: white;
+    text-align: center;
+    padding: 25px;
+}
+</style>
+"""
+
+
+HEADER = """
+<header>
+<p>🇨🇩 RÉPUBLIQUE DÉMOCRATIQUE DU CONGO</p>
+<p>DIOCÈSE DE BUTEMBO-BENI</p>
+<p>PAROISSE SAINT CONRAD KASINDI</p>
+
+<h1>✝️ CROISADE EUCHARISTIQUE</h1>
+
+<h2>SECTEUR BON BERGER LUBIRIHA</h2>
+
+<h3>SERVANTS DE MESSE</h3>
+</header>
+
+<nav>
+<a href="/">🏠 Accueil</a>
+<a href="/servants">👥 Servants</a>
+<a href="/classement">🏆 Classement</a>
+<a href="/messes">🕐 Messes</a>
+<a href="/enseignement">📚 Enseignements</a>
+<a href="/croisade">✝️ Croisade</a>
+<a href="/prieres">🙏 Prières</a>
+<a href="/annonces">📢 Annonces</a>
+<a href="/inscription">📝 Compte</a>
+<a href="/connexion">🔐 Connexion</a>
+<a href="/admin">👑 Admin</a>
+</nav>
+"""
+
+
+FOOTER = """
+<footer>
+<p>✝️ CROISADE EUCHARISTIQUE</p>
+<p>SECTEUR BON BERGER LUBIRIHA</p>
+<p>PAROISSE SAINT CONRAD KASINDI</p>
+<p>Créé par Alphonse Kingereki</p>
+<p>© 2026</p>
+</footer>
+"""
+
+
+def page(titre, contenu):
+
+    return """
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
+
+<title>
+""" + titre + """
+</title>
+
+""" + STYLE + """
+
+</head>
+
+<body>
+
+""" + HEADER + """
+
+<main>
+
+""" + contenu + """
+
+</main>
+
+""" + FOOTER + """
+
+</body>
+</html>
+"""
+
+
+def accueil():
+
+    contenu = """
+
+<div class="card">
+
+<h2>🙏 Bienvenue</h2>
+
+<p>
+Bienvenue sur le site officiel de la
+<strong>Croisade Eucharistique</strong>.
+</p>
+
+<p>
+Paroisse Saint Conrad Kasindi.
+</p>
+
+<p>
+Secteur Bon Berger Lubiriha.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>👥 Servants de Messe</h2>
+
+<p>
+Informations sur les servants de messe.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>🏆 Classement</h2>
+
+<p>
+Classement des servants.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>🕐 Horaires des Messes</h2>
+
+<p>
+Les horaires des messes seront publiés ici.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>📚 Horaires des Enseignements</h2>
+
+<p>
+Les horaires des enseignements seront publiés ici.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>✝️ Croisade Eucharistique</h2>
+
+<p>
+Informations sur la Croisade Eucharistique.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>🙏 Prières</h2>
+
+<p>
+Prières et méditations.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>📢 Annonces</h2>
+
+<p>
+Les annonces seront publiées ici.
+</p>
+
+</div>
+
+"""
+
+    return page("Accueil", contenu)
+
+
+def inscription():
+
+    contenu = """
+
+<div class="card">
+
+<h2>📝 Créer un compte utilisateur</h2>
+
+<form method="POST" action="/inscription">
+
+<label>Nom et prénom</label>
+
+<input
+type="text"
+name="nom"
+required
+>
+
+<label>Nom d'utilisateur</label>
+
+<input
+type="text"
+name="username"
+required
+>
+
+<label>Mot de passe</label>
+
+<input
+type="password"
+name="password"
+required
+>
+
+<button type="submit">
+Créer mon compte
+</button>
+
+</form>
+
+</div>
+
+"""
+
+    return page("Créer un compte", contenu)
+
+
+def connexion():
+
+    contenu = """
+
+<div class="card">
+
+<h2>🔐 Connexion</h2>
+
+<form method="POST" action="/connexion">
+
+<label>Nom d'utilisateur</label>
+
+<input
+type="text"
+name="username"
+required
+>
+
+<label>Mot de passe</label>
+
+<input
+type="password"
+name="password"
+required
+>
+
+<button type="submit">
+Se connecter
+</button>
+
+</form>
+
+</div>
+
+"""
+
+    return page("Connexion", contenu)
+
+
+def admin():
+
+    contenu = """
+
+<div class="card">
+
+<h2>👑 Espace Administrateur</h2>
+
+<form method="POST" action="/admin">
+
+<label>Nom administrateur</label>
+
+<input
+type="text"
+name="username"
+required
+>
+
+<label>Code administrateur</label>
+
+<input
+type="password"
+name="password"
+required
+>
+
+<button type="submit">
+Se connecter
+</button>
+
+</form>
+
+</div>
+
+"""
+
+    return page("Administrateur", contenu)
+
+
+def admin_ok():
+
+    contenu = """
+
+<div class="card">
+
+<h2>👑 Tableau de bord</h2>
+
+<p>
+Bienvenue <strong>Alphonse Kingereki</strong>.
+</p>
+
+<p>
+Tu es connecté comme administrateur.
+</p>
+
+</div>
+
+
+<div class="card">
+
+<h2>⚙️ Gestion du site</h2>
+
+<p>👥 Modifier les servants</p>
+
+<p>🏆 Modifier le classement</p>
+
+<p>🕐 Modifier les horaires des messes</p>
+
+<p>📚 Modifier les horaires des enseignements</p>
+
+<p>✝️ Modifier les informations de la Croisade</p>
+
+<p>🙏 Modifier les prières</p>
+
+<p>📢 Publier les annonces</p>
+
+</div>
+
+"""
+
+    return page("Administration", contenu)
+
+
+class SiteHandler(BaseHTTPRequestHandler):
+
+    def envoyer(self, texte):
+
+        self.send_response(200)
+
+        self.send_header(
+            "Content-Type",
+            "text/html; charset=utf-8"
+        )
+
+        self.end_headers()
+
+        self.wfile.write(
+            texte.encode("utf-8")
+        )
+
+
+    def formulaire(self):
+
+        longueur = int(
+            self.headers.get(
+                "Content-Length",
+                0
+            )
+        )
+
+        contenu = self.rfile.read(
+            longueur
+        ).decode("utf-8")
+
+        return urllib.parse.parse_qs(
+            contenu
+        )
+
+
+    def do_GET(self):
+
+        if self.path == "/":
+
+            self.envoyer(
+                accueil()
+            )
+
+        elif self.path == "/inscription":
+
+            self.envoyer(
+                inscription()
+            )
+
+        elif self.path == "/connexion":
+
+            self.envoyer(
+                connexion()
+            )
+
+        elif self.path == "/admin":
+
+            self.envoyer(
+                admin()
+            )
+
+        elif self.path == "/servants":
+
+            self.envoyer(
+                page(
+                    "Servants",
+                    """
+                    <div class="card">
+                    <h2>👥 Servants de Messe</h2>
+                    <p>
+                    Liste et informations des servants.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        elif self.path == "/classement":
+
+            self.envoyer(
+                page(
+                    "Classement",
+                    """
+                    <div class="card">
+                    <h2>🏆 Classement</h2>
+                    <p>
+                    Classement des servants.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        elif self.path == "/messes":
+
+            self.envoyer(
+                page(
+                    "Horaires des Messes",
+                    """
+                    <div class="card">
+                    <h2>🕐 Horaires des Messes</h2>
+                    <p>
+                    Les horaires seront publiés ici.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        elif self.path == "/enseignement":
+
+            self.envoyer(
+                page(
+                    "Enseignements",
+                    """
+                    <div class="card">
+                    <h2>📚 Horaires des Enseignements</h2>
+                    <p>
+                    Les horaires seront publiés ici.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        elif self.path == "/croisade":
+
+            self.envoyer(
+                page(
+                    "Croisade Eucharistique",
+                    """
+                    <div class="card">
+                    <h2>✝️ Croisade Eucharistique</h2>
+                    <p>
+                    Informations et activités.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        elif self.path == "/prieres":
+
+            self.envoyer(
+                page(
+                    "Prières",
+                    """
+                    <div class="card">
+                    <h2>🙏 Prières</h2>
+                    <p>
+                    Prières et méditations.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        elif self.path == "/annonces":
+
+            self.envoyer(
+                page(
+                    "Annonces",
+                    """
+                    <div class="card">
+                    <h2>📢 Annonces</h2>
+                    <p>
+                    Les annonces seront publiées ici.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+        else:
+
+            self.envoyer(
+                page(
+                    "Erreur",
+                    """
+                    <div class="card">
+                    <h2>❌ Page introuvable</h2>
+                    </div>
+                    """
+                )
+            )
+
+
+    def do_POST(self):
+
+        donnees = self.formulaire()
+
+
+        if self.path == "/inscription":
+
+            self.envoyer(
+                page(
+                    "Compte créé",
+                    """
+                    <div class="card">
+                    <h2>✅ Compte créé</h2>
+                    <p>
+                    Ton compte utilisateur a été créé.
+                    </p>
+                    <a href="/connexion">
+                    <button>
+                    Se connecter
+                    </button>
+                    </a>
+                    </div>
+                    """
+                )
+            )
+
+            return
+
+
+        if self.path == "/connexion":
+
+            self.envoyer(
+                page(
+                    "Espace personnel",
+                    """
+                    <div class="card">
+                    <h2>👤 Espace personnel</h2>
+                    <p>
+                    Bienvenue dans ton espace personnel.
+                    </p>
+                    </div>
+                    """
+                )
+            )
+
+            return
+
+
+        if self.path == "/admin":
+
+            username = donnees.get(
+                "username",
+                [""]
+            )[0]
+
+            password = donnees.get(
+                "password",
+                [""]
+            )[0]
+
+
+            if (
+                username == ADMIN_USER
+                and
+                password == ADMIN_PASS
+            ):
+
+                self.envoyer(
+                    admin_ok()
+                )
+
+            else:
+
+                self.envoyer(
+                    page(
+                        "Erreur",
+                        """
+                        <div class="card">
+                        <h2>
+                        ❌ Identifiants incorrects
+                        </h2>
+
+                        <p>
+                        Vérifie le nom et le code.
+                        </p>
+                        </div>
+                        """
+                    )
+                )
+
+            return
+
+
+serveur = HTTPServer(
+    ("0.0.0.0", PORT),
+    SiteHandler
+)
+
+print("")
+print("====================================")
+print("✅ SITE DEMARRE AVEC SUCCES")
+print("====================================")
+print("RDC")
+print("Diocèse de Butembo-Beni")
+print("Paroisse Saint Conrad Kasindi")
+print("Croisade Eucharistique")
+print("Secteur Bon Berger Lubiriha")
+print("====================================")
+print("")
+print("🌐 OUVRE CHROME :")
+print("")
+print("http://127.0.0.1:8080")
+print("")
+print("⚠️ LAISSE PYDROID OUVERT")
+print("====================================")
+
+serveur.serve_forever()
