@@ -2,6 +2,7 @@ from flask import Flask, request, redirect, session
 import sqlite3
 import os
 import html
+import base64
 
 app = Flask(__name__)
 app.secret_key = "change-cette-cle"
@@ -55,6 +56,19 @@ def get_contenus(categorie):
     conn.close()
 
     return resultats
+
+
+def fichier_base64(fichier):
+    if not fichier or not fichier.filename:
+        return None
+
+    contenu = fichier.read()
+
+    # Limite de 10 MB par fichier
+    if len(contenu) > 10 * 1024 * 1024:
+        return None
+
+    return base64.b64encode(contenu).decode("utf-8")
 
 
 def page(titre, contenu):
@@ -140,6 +154,15 @@ button {{
     border: 0;
     padding: 12px 18px;
     border-radius: 6px;
+    margin: 4px;
+}}
+
+.delete {{
+    background: #b00020;
+}}
+
+.edit {{
+    background: #287a2b;
 }}
 
 img {{
@@ -208,8 +231,6 @@ footer {{
 
 <p>SECTEUR BON BERGER LUBIRIHA</p>
 
-<p>PAROISSE SAINT CONRAD KASINDI</p>
-
 <p>Créé par Alphonse Kingereki</p>
 
 <p>© 2026</p>
@@ -220,6 +241,33 @@ footer {{
 
 </html>
 """
+
+
+def afficher_media(photo, audio, video):
+
+    media = ""
+
+    if photo:
+        media += f"""
+        <img src="data:image/jpeg;base64,{photo}"
+        alt="Photo">
+        """
+
+    if audio:
+        media += f"""
+        <audio controls>
+            <source src="data:audio/mpeg;base64,{audio}">
+        </audio>
+        """
+
+    if video:
+        media += f"""
+        <video controls>
+            <source src="data:video/mp4;base64,{video}">
+        </video>
+        """
+
+    return media
 
 
 def afficher_contenus(categorie):
@@ -245,26 +293,7 @@ def afficher_contenus(categorie):
 
     for identifiant, titre, texte, photo, audio, video in liste:
 
-        media = ""
-
-        if photo:
-            media += f"""
-            <img src="{html.escape(photo)}" alt="Photo">
-            """
-
-        if audio:
-            media += f"""
-            <audio controls>
-                <source src="{html.escape(audio)}">
-            </audio>
-            """
-
-        if video:
-            media += f"""
-            <video controls>
-                <source src="{html.escape(video)}">
-            </video>
-            """
+        media = afficher_media(photo, audio, video)
 
         contenu += f"""
         <div class="card">
@@ -300,9 +329,9 @@ def accueil():
         Secteur Bon Berger Lubiriha.
         </p>
 
-        <p>
+        <h3>
         ✝️ Pour nous aussi, le Christ !
-        </p>
+        </h3>
 
     </div>
     """
@@ -374,21 +403,85 @@ def dashboard():
     if not session.get("admin"):
         return redirect("/admin")
 
+    toutes = []
+
+    conn = sqlite3.connect(DB)
+
+    toutes = conn.execute("""
+        SELECT id, categorie, titre, texte
+        FROM contenus
+        ORDER BY id DESC
+    """).fetchall()
+
+    conn.close()
+
+    liste = ""
+
+    for identifiant, categorie, titre, texte in toutes:
+
+        nom_categorie = CATEGORIES.get(
+            categorie,
+            categorie
+        )
+
+        liste += f"""
+        <div class="card">
+
+            <h3>{html.escape(titre)}</h3>
+
+            <p>
+            <strong>{nom_categorie}</strong>
+            </p>
+
+            <p>
+            {html.escape(texte).replace(chr(10), "<br>")}
+            </p>
+
+            <a href="/modifier/{identifiant}">
+                <button class="edit">
+                    ✏️ Modifier
+                </button>
+            </a>
+
+            <form
+                method="POST"
+                action="/supprimer/{identifiant}"
+                style="display:inline;"
+                onsubmit="return confirm('Supprimer cette publication ?');">
+
+                <button
+                    type="submit"
+                    class="delete">
+
+                    🗑️ Supprimer
+
+                </button>
+
+            </form>
+
+        </div>
+        """
+
     return page(
         "Administration",
         f"""
+
         <div class="card">
 
             <h2>👑 Tableau de bord</h2>
 
-            <h3>➕ Nouvelle publication</h3>
+            <h3>📢 Nouvelle publication</h3>
 
-            <form method="POST"
-                  action="/publier">
+            <form
+                method="POST"
+                action="/publier"
+                enctype="multipart/form-data">
 
                 <label>📂 Rubrique</label>
 
-                <select name="categorie" required>
+                <select
+                    name="categorie"
+                    required>
 
                     {
                     ''.join(
@@ -412,26 +505,26 @@ def dashboard():
                     name="texte"
                     required></textarea>
 
-                <label>🖼️ Lien de la photo</label>
+                <label>🖼️ Photo depuis le téléphone</label>
 
                 <input
-                    type="url"
+                    type="file"
                     name="photo"
-                    placeholder="https://...">
+                    accept="image/*">
 
-                <label>🎵 Lien de l'audio</label>
+                <label>🎵 Audio depuis le téléphone</label>
 
                 <input
-                    type="url"
+                    type="file"
                     name="audio"
-                    placeholder="https://...">
+                    accept="audio/*">
 
-                <label>🎥 Lien de la vidéo</label>
+                <label>🎥 Vidéo depuis le téléphone</label>
 
                 <input
-                    type="url"
+                    type="file"
                     name="video"
-                    placeholder="https://...">
+                    accept="video/*">
 
                 <button type="submit">
                     📢 PUBLIER
@@ -441,16 +534,9 @@ def dashboard():
 
         </div>
 
-        <div class="card">
+        <h2>📋 Publications</h2>
 
-            <h3>📋 Gestion des publications</h3>
-
-            <p>
-            Les publications sont enregistrées
-            dans la rubrique choisie.
-            </p>
-
-        </div>
+        {liste}
 
         <div class="card">
 
@@ -459,6 +545,7 @@ def dashboard():
             </a>
 
         </div>
+
         """
     )
 
@@ -469,12 +556,32 @@ def publier():
     if not session.get("admin"):
         return redirect("/admin")
 
-    categorie = request.form.get("categorie", "")
-    titre = request.form.get("titre", "").strip()
-    texte = request.form.get("texte", "").strip()
-    photo = request.form.get("photo", "").strip()
-    audio = request.form.get("audio", "").strip()
-    video = request.form.get("video", "").strip()
+    categorie = request.form.get(
+        "categorie",
+        ""
+    )
+
+    titre = request.form.get(
+        "titre",
+        ""
+    ).strip()
+
+    texte = request.form.get(
+        "texte",
+        ""
+    ).strip()
+
+    photo = fichier_base64(
+        request.files.get("photo")
+    )
+
+    audio = fichier_base64(
+        request.files.get("audio")
+    )
+
+    video = fichier_base64(
+        request.files.get("video")
+    )
 
     if categorie not in CATEGORIES:
         return "Rubrique invalide", 400
@@ -492,15 +599,165 @@ def publier():
         categorie,
         titre,
         texte,
-        photo or None,
-        audio or None,
-        video or None
+        photo,
+        audio,
+        video
     ))
 
     conn.commit()
     conn.close()
 
     return redirect("/dashboard")
+
+
+@app.route("/supprimer/<int:identifiant>", methods=["POST"])
+def supprimer(identifiant):
+
+    if not session.get("admin"):
+        return redirect("/admin")
+
+    conn = sqlite3.connect(DB)
+
+    conn.execute(
+        "DELETE FROM contenus WHERE id = ?",
+        (identifiant,)
+    )
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/dashboard")
+
+
+@app.route("/modifier/<int:identifiant>", methods=["GET", "POST"])
+def modifier(identifiant):
+
+    if not session.get("admin"):
+        return redirect("/admin")
+
+    conn = sqlite3.connect(DB)
+
+    publication = conn.execute("""
+        SELECT id, categorie, titre, texte
+        FROM contenus
+        WHERE id = ?
+    """, (identifiant,)).fetchone()
+
+    conn.close()
+
+    if not publication:
+        return "Publication introuvable", 404
+
+    if request.method == "POST":
+
+        categorie = request.form.get(
+            "categorie",
+            ""
+        )
+
+        titre = request.form.get(
+            "titre",
+            ""
+        ).strip()
+
+        texte = request.form.get(
+            "texte",
+            ""
+        ).strip()
+
+        if categorie not in CATEGORIES:
+            return "Rubrique invalide", 400
+
+        if not titre or not texte:
+            return "Titre et texte obligatoires", 400
+
+        conn = sqlite3.connect(DB)
+
+        conn.execute("""
+            UPDATE contenus
+            SET categorie = ?, titre = ?, texte = ?
+            WHERE id = ?
+        """, (
+            categorie,
+            titre,
+            texte,
+            identifiant
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return redirect("/dashboard")
+
+    _, categorie_actuelle, titre_actuel, texte_actuel = publication
+
+    options = ""
+
+    for c, n in CATEGORIES.items():
+
+        selected = ""
+
+        if c == categorie_actuelle:
+            selected = "selected"
+
+        options += f"""
+        <option value="{c}" {selected}>
+            {n}
+        </option>
+        """
+
+    contenu = f"""
+
+    <div class="card">
+
+        <h2>✏️ Modifier la publication</h2>
+
+        <form method="POST">
+
+            <label>📂 Rubrique</label>
+
+            <select
+                name="categorie"
+                required>
+
+                {options}
+
+            </select>
+
+            <label>📝 Titre</label>
+
+            <input
+                type="text"
+                name="titre"
+                value="{html.escape(titre_actuel)}"
+                required>
+
+            <label>📄 Texte</label>
+
+            <textarea
+                name="texte"
+                required>{html.escape(texte_actuel)}</textarea>
+
+            <button type="submit">
+                💾 Enregistrer
+            </button>
+
+        </form>
+
+        <br>
+
+        <a href="/dashboard">
+            ↩️ Retour
+        </a>
+
+    </div>
+
+    """
+
+    return page(
+        "Modifier",
+        contenu
+    )
 
 
 @app.route("/logout")
