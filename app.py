@@ -13,6 +13,10 @@ ADMIN_PASS = "alkinge@"
 DB = "site.db"
 
 
+# =========================
+# BASE DE DONNÉES
+# =========================
+
 def init_db():
     conn = sqlite3.connect(DB)
 
@@ -31,27 +35,42 @@ def init_db():
 
 def annonces():
     conn = sqlite3.connect(DB)
+
     resultats = conn.execute(
         "SELECT id, titre, texte, photo FROM annonces ORDER BY id DESC"
     ).fetchall()
+
     conn.close()
+
     return resultats
 
 
+# =========================
+# DESIGN DU SITE
+# =========================
+
 def page(titre, contenu):
+
     return f"""
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
+
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{titre}</title>
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1">
+
+<title>{titre} - Croisade Eucharistique</title>
 
 <style>
+
 body {{
     margin:0;
     font-family:Arial,sans-serif;
     background:#f2f2f2;
+    color:#222;
 }}
 
 header {{
@@ -61,17 +80,30 @@ header {{
     padding:25px 10px;
 }}
 
+header h1 {{
+    margin:10px 0;
+}}
+
 nav {{
     background:white;
+    padding:12px 5px;
     text-align:center;
-    padding:12px;
+    box-shadow:0 2px 5px #bbb;
 }}
 
 nav a {{
+    display:inline-block;
     margin:5px;
+    padding:8px 10px;
     text-decoration:none;
     font-weight:bold;
     color:#123c69;
+    border-radius:6px;
+}}
+
+nav a:hover {{
+    background:#123c69;
+    color:white;
 }}
 
 main {{
@@ -88,11 +120,18 @@ main {{
     box-shadow:0 2px 7px #ccc;
 }}
 
-input, textarea {{
+.card h2 {{
+    color:#123c69;
+}}
+
+input,
+textarea {{
     width:100%;
     padding:12px;
     margin:8px 0 15px;
     box-sizing:border-box;
+    border:1px solid #ccc;
+    border-radius:6px;
 }}
 
 textarea {{
@@ -105,6 +144,11 @@ button {{
     border:0;
     padding:12px 18px;
     border-radius:6px;
+    cursor:pointer;
+}}
+
+button:hover {{
+    background:#0b2948;
 }}
 
 img {{
@@ -118,43 +162,88 @@ footer {{
     color:white;
     text-align:center;
     padding:25px;
-    color:white;
+    margin-top:30px;
 }}
+
+.menu-title {{
+    color:#123c69;
+    font-weight:bold;
+}}
+
 </style>
+
 </head>
 
 <body>
 
 <header>
+
 <p>🇨🇩 RÉPUBLIQUE DÉMOCRATIQUE DU CONGO</p>
+
 <p>DIOCÈSE DE BUTEMBO-BENI</p>
+
 <p>PAROISSE SAINT CONRAD KASINDI</p>
+
 <h1>✝️ CROISADE EUCHARISTIQUE</h1>
+
 <h2>SECTEUR BON BERGER LUBIRIHA</h2>
+
 </header>
 
+
 <nav>
+
 <a href="/">🏠 Accueil</a>
+
+<a href="/servants">👥 Servants</a>
+
+<a href="/classement">🏆 Classement</a>
+
+<a href="/messes">🕐 Messes</a>
+
+<a href="/enseignements">📚 Enseignements</a>
+
+<a href="/croisade">✝️ Croisade</a>
+
+<a href="/prieres">🙏 Prières</a>
+
 <a href="/annonces">📢 Annonces</a>
+
 <a href="/admin">👑 Admin</a>
+
 </nav>
 
+
 <main>
+
 {contenu}
+
 </main>
 
+
 <footer>
+
 <p>✝️ CROISADE EUCHARISTIQUE</p>
+
 <p>SECTEUR BON BERGER LUBIRIHA</p>
+
 <p>PAROISSE SAINT CONRAD KASINDI</p>
+
 <p>Créé par Alphonse Kingereki</p>
+
 <p>© 2026</p>
+
 </footer>
 
 </body>
+
 </html>
 """
 
+
+# =========================
+# ACCUEIL
+# =========================
 
 @app.route("/")
 def accueil():
@@ -166,259 +255,176 @@ def accueil():
         image = ""
 
         if photo:
-            image = f'<img src="data:image/jpeg;base64,{photo}">'
+
+            image = f'''
+            <img src="data:image/jpeg;base64,{photo}">
+            '''
 
         liste += f"""
+
         <div class="card">
+
             <h2>📢 {html.escape(titre)}</h2>
+
             {image}
-            <p>{html.escape(texte).replace(chr(10), "<br>")}</p>
+
+            <p>
+            {html.escape(texte).replace(chr(10), "<br>")}
+            </p>
+
         </div>
+
         """
 
     if not liste:
-        liste = "<p>Aucune annonce publiée pour le moment.</p>"
+
+        liste = """
+        <div class="card">
+            <p>Aucune annonce publiée pour le moment.</p>
+        </div>
+        """
 
     return page(
         "Accueil",
+
         f"""
+
         <div class="card">
+
             <h2>🙏 Bienvenue</h2>
+
             <p>
-            Bienvenue sur le site de la
+            Bienvenue sur le site officiel de la
             <strong>Croisade Eucharistique</strong>.
             </p>
-        </div>
 
-        <h2>📢 Dernières annonces</h2>
-
-        {liste}
-        """
-    )
-
-
-@app.route("/annonces")
-def page_annonces():
-    return accueil()
-
-
-@app.route("/admin", methods=["GET", "POST"])
-def admin():
-
-    if request.method == "POST":
-
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
-
-        if username == ADMIN_USER and password == ADMIN_PASS:
-            session["admin"] = True
-            return redirect("/dashboard")
-
-        return page(
-            "Erreur",
-            """
-            <div class="card">
-                <h2>❌ Identifiants incorrects</h2>
-                <a href="/admin">Retour</a>
-            </div>
-            """
-        )
-
-    return page(
-        "Administration",
-        """
-        <div class="card">
-
-        <h2>👑 Espace Administrateur</h2>
-
-        <form method="POST">
-
-        <label>Nom administrateur</label>
-
-        <input
-        type="text"
-        name="username"
-        required>
-
-        <label>Mot de passe</label>
-
-        <input
-        type="password"
-        name="password"
-        required>
-
-        <button type="submit">
-        🔐 Connexion
-        </button>
-
-        </form>
-
-        </div>
-        """
-    )
-
-
-@app.route("/dashboard")
-def dashboard():
-
-    if not session.get("admin"):
-        return redirect("/admin")
-
-    liste = ""
-
-    for identifiant, titre, texte, photo in annonces():
-
-        image = ""
-
-        if photo:
-            image = f'<img src="data:image/jpeg;base64,{photo}">'
-
-        liste += f"""
-        <div class="card">
-
-        <h3>📢 {html.escape(titre)}</h3>
-
-        {image}
-
-        <p>{html.escape(texte).replace(chr(10), "<br>")}</p>
-
-        <form method="POST"
-        action="/supprimer/{identifiant}">
-
-        <button type="submit">
-        🗑️ Supprimer
-        </button>
-
-        </form>
-
-        </div>
-        """
-
-    return page(
-        "Administration",
-        f"""
-        <div class="card">
-
-        <h2>👑 Tableau de bord</h2>
-
-        <h3>📢 Nouvelle publication</h3>
-
-        <form method="POST"
-        action="/publier"
-        enctype="multipart/form-data">
-
-        <label>Titre</label>
-
-        <input
-        type="text"
-        name="titre"
-        placeholder="Titre de l'annonce"
-        required>
-
-        <label>Information</label>
-
-        <textarea
-        name="texte"
-        placeholder="Écris ton information ici..."
-        required></textarea>
-
-        <label>📷 Photo</label>
-
-        <input
-        type="file"
-        name="photo"
-        accept="image/*">
-
-        <button type="submit">
-        📢 PUBLIER
-        </button>
-
-        </form>
+            <p>
+            Secteur Bon Berger Lubiriha,
+            Paroisse Saint Conrad Kasindi,
+            Diocèse de Butembo-Beni.
+            </p>
 
         </div>
 
-        <h2>📋 Publications</h2>
+
+        <h2 class="menu-title">
+        📢 Dernières annonces
+        </h2>
 
         {liste}
 
-        <div class="card">
-        <a href="/logout">🚪 Déconnexion</a>
-        </div>
         """
     )
 
 
-@app.route("/publier", methods=["POST"])
-def publier():
+# =========================
+# SERVANTS
+# =========================
 
-    if not session.get("admin"):
-        return redirect("/admin")
+@app.route("/servants")
+def servants():
 
-    titre = request.form.get("titre", "").strip()
-    texte = request.form.get("texte", "").strip()
+    return page(
+        "Servants",
 
-    photo = request.files.get("photo")
-    photo_base64 = None
+        """
 
-    if photo and photo.filename:
+        <div class="card">
 
-        contenu = photo.read()
+            <h2>👥 Servants de Messe</h2>
 
-        if len(contenu) <= 2 * 1024 * 1024:
-            photo_base64 = base64.b64encode(contenu).decode("utf-8")
+            <p>
+            Bienvenue dans l'espace des servants
+            de la Croisade Eucharistique.
+            </p>
 
-    if titre and texte:
+            <h3>⛪ Notre mission</h3>
 
-        conn = sqlite3.connect(DB)
+            <p>
+            Servir Dieu avec foi, discipline,
+            respect et amour de l'Église.
+            </p>
 
-        conn.execute(
-            """
-            INSERT INTO annonces
-            (titre, texte, photo)
-            VALUES (?, ?, ?)
-            """,
-            (titre, texte, photo_base64)
-        )
+            <h3>📚 Formation</h3>
 
-        conn.commit()
-        conn.close()
+            <p>
+            Les servants participent régulièrement
+            aux formations et activités de leur groupe.
+            </p>
 
-    return redirect("/dashboard")
+        </div>
 
+        <div class="card">
 
-@app.route("/supprimer/<int:identifiant>", methods=["POST"])
-def supprimer(identifiant):
+            <h2>👤 Responsable</h2>
 
-    if not session.get("admin"):
-        return redirect("/admin")
+            <p>
+            Les informations sur les responsables
+            et les différents servants seront ajoutées
+            prochainement.
+            </p>
 
-    conn = sqlite3.connect(DB)
+        </div>
 
-    conn.execute(
-        "DELETE FROM annonces WHERE id = ?",
-        (identifiant,)
+        """
     )
 
-    conn.commit()
-    conn.close()
 
-    return redirect("/dashboard")
+# =========================
+# CLASSEMENT
+# =========================
 
+@app.route("/classement")
+def classement():
 
-@app.route("/logout")
-def logout():
+    return page(
+        "Classement",
 
-    session.clear()
+        """
 
-    return redirect("/admin")
+        <div class="card">
 
+            <h2>🏆 Classement des Servants</h2>
 
-init_db()
+            <p>
+            Cette page permettra de suivre
+            les résultats et le classement
+            des servants.
+            </p>
 
+        </div>
 
-if __name__ == "__main__":
+        <div class="card">
 
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8080))
+            <h3>🥇 1er</h3>
+            <p>À compléter</p>
+
+            <h3>🥈 2ème</h3>
+            <p>À compléter</p>
+
+            <h3>🥉 3ème</h3>
+            <p>À compléter</p>
+
+        </div>
+
+        """
     )
+
+
+# =========================
+# MESSES
+# =========================
+
+@app.route("/messes")
+def messes():
+
+    return page(
+        "Messes",
+
+        """
+
+        <div class="card">
+
+            <h2>🕐 Horaires des Messes</h2>
+
+            <h3>📅
