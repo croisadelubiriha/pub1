@@ -701,34 +701,3 @@ class SiteHandler(BaseHTTPRequestHandler):
                         Vérifie le nom et le code.
                         </p>
                         </div>
-                        """
-                    )
-                )
-
-            return
-
-
-serveur = HTTPServer(
-    ("0.0.0.0", PORT),
-    SiteHandler
-)
-
-print("")
-print("====================================")
-print("✅ SITE DEMARRE AVEC SUCCES")
-print("====================================")
-print("RDC")
-print("Diocèse de Butembo-Beni")
-print("Paroisse Saint Conrad Kasindi")
-print("Croisade Eucharistique")
-print("Secteur Bon Berger Lubiriha")
-print("====================================")
-print("")
-print("🌐 OUVRE CHROME :")
-print("")
-print("http://127.0.0.1:8080")
-print("")
-print("⚠️ LAISSE PYDROID OUVERT")
-print("====================================")
-
-serveur.serve_forever()
