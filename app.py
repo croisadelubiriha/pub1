@@ -427,4 +427,471 @@ def messes():
 
             <h2>🕐 Horaires des Messes</h2>
 
-            <h3>📅
+            <h3>📅 Lundi à Samedi</h3>
+
+            <p>
+            Messe : 06h00 - 07h00
+            </p>
+
+            <h3>🙏 Jeudi</h3>
+
+            <p>
+            Adoration : 14h30 - 15h00
+            </p>
+
+            <h3>📚 Formation des servants</h3>
+
+            <p>
+            Lundi et mercredi :
+            15h30 - selon le programme.
+            </p>
+
+        </div>
+
+        """
+    )
+
+
+# =========================
+# ENSEIGNEMENTS
+# =========================
+
+@app.route("/enseignements")
+def enseignements():
+
+    return page(
+        "Enseignements",
+
+        """
+
+        <div class="card">
+
+            <h2>📚 Enseignements</h2>
+
+            <p>
+            Retrouvez ici les enseignements
+            destinés aux servants et aux membres
+            de la Croisade Eucharistique.
+            </p>
+
+        </div>
+
+        <div class="card">
+
+            <h3>✝️ Foi catholique</h3>
+
+            <p>
+            Les enseignements seront publiés
+            progressivement.
+            </p>
+
+        </div>
+
+        """
+    )
+
+
+# =========================
+# CROISADE
+# =========================
+
+@app.route("/croisade")
+def croisade():
+
+    return page(
+        "Croisade",
+
+        """
+
+        <div class="card">
+
+            <h2>✝️ Croisade Eucharistique</h2>
+
+            <p>
+            La Croisade Eucharistique aide les enfants
+            et les jeunes à vivre leur foi chrétienne
+            autour de Jésus Eucharistie.
+            </p>
+
+            <h3>🙏 Notre engagement</h3>
+
+            <p>
+            Prier, communier, se former et servir
+            avec amour.
+            </p>
+
+        </div>
+
+        <div class="card">
+
+            <h3>⛪ Secteur Bon Berger Lubiriha</h3>
+
+            <p>
+            Paroisse Saint Conrad Kasindi
+            </p>
+
+            <p>
+            Diocèse de Butembo-Beni
+            </p>
+
+        </div>
+
+        """
+    )
+
+
+# =========================
+# PRIERES
+# =========================
+
+@app.route("/prieres")
+def prieres():
+
+    return page(
+        "Prières",
+
+        """
+
+        <div class="card">
+
+            <h2>🙏 Prières</h2>
+
+            <h3>✝️ Signe de croix</h3>
+
+            <p>
+            Au nom du Père, du Fils et du Saint-Esprit.
+            Amen.
+            </p>
+
+            <h3>🙏 Notre Père</h3>
+
+            <p>
+            Notre Père qui es aux cieux,
+            que ton nom soit sanctifié.
+            </p>
+
+            <h3>🌹 Je vous salue Marie</h3>
+
+            <p>
+            Je vous salue Marie,
+            pleine de grâce.
+            </p>
+
+        </div>
+
+        """
+    )
+
+
+# =========================
+# ANNONCES
+# =========================
+
+@app.route("/annonces")
+def page_annonces():
+
+    return accueil()
+
+
+# =========================
+# ADMIN
+# =========================
+
+@app.route("/admin", methods=["GET", "POST"])
+def admin():
+
+    if request.method == "POST":
+
+        username = request.form.get("username", "")
+        password = request.form.get("password", "")
+
+        if username == ADMIN_USER and password == ADMIN_PASS:
+
+            session["admin"] = True
+
+            return redirect("/dashboard")
+
+        return page(
+            "Erreur",
+
+            """
+
+            <div class="card">
+
+                <h2>❌ Identifiants incorrects</h2>
+
+                <a href="/admin">
+                Retour
+                </a>
+
+            </div>
+
+            """
+        )
+
+    return page(
+        "Administration",
+
+        """
+
+        <div class="card">
+
+        <h2>👑 Espace Administrateur</h2>
+
+        <form method="POST">
+
+        <label>
+        Nom administrateur
+        </label>
+
+        <input
+        type="text"
+        name="username"
+        required>
+
+        <label>
+        Mot de passe
+        </label>
+
+        <input
+        type="password"
+        name="password"
+        required>
+
+        <button type="submit">
+        🔐 Connexion
+        </button>
+
+        </form>
+
+        </div>
+
+        """
+    )
+
+
+# =========================
+# TABLEAU DE BORD
+# =========================
+
+@app.route("/dashboard")
+def dashboard():
+
+    if not session.get("admin"):
+
+        return redirect("/admin")
+
+    liste = ""
+
+    for identifiant, titre, texte, photo in annonces():
+
+        image = ""
+
+        if photo:
+
+            image = f'''
+            <img src="data:image/jpeg;base64,{photo}">
+            '''
+
+        liste += f"""
+
+        <div class="card">
+
+        <h3>
+        📢 {html.escape(titre)}
+        </h3>
+
+        {image}
+
+        <p>
+        {html.escape(texte).replace(chr(10), "<br>")}
+        </p>
+
+        <form method="POST"
+        action="/supprimer/{identifiant}">
+
+        <button type="submit">
+        🗑️ Supprimer
+        </button>
+
+        </form>
+
+        </div>
+
+        """
+
+    return page(
+        "Administration",
+
+        f"""
+
+        <div class="card">
+
+        <h2>👑 Tableau de bord</h2>
+
+        <h3>
+        📢 Nouvelle publication
+        </h3>
+
+        <form method="POST"
+        action="/publier"
+        enctype="multipart/form-data">
+
+        <label>
+        Titre
+        </label>
+
+        <input
+        type="text"
+        name="titre"
+        placeholder="Titre de l'annonce"
+        required>
+
+        <label>
+        Information
+        </label>
+
+        <textarea
+        name="texte"
+        placeholder="Écris ton information ici..."
+        required></textarea>
+
+        <label>
+        📷 Photo
+        </label>
+
+        <input
+        type="file"
+        name="photo"
+        accept="image/*">
+
+        <button type="submit">
+        📢 PUBLIER
+        </button>
+
+        </form>
+
+        </div>
+
+
+        <h2>
+        📋 Publications
+        </h2>
+
+        {liste}
+
+
+        <div class="card">
+
+        <a href="/logout">
+        🚪 Déconnexion
+        </a>
+
+        </div>
+
+        """
+    )
+
+
+# =========================
+# PUBLIER
+# =========================
+
+@app.route("/publier", methods=["POST"])
+def publier():
+
+    if not session.get("admin"):
+
+        return redirect("/admin")
+
+    titre = request.form.get("titre", "").strip()
+
+    texte = request.form.get("texte", "").strip()
+
+    photo = request.files.get("photo")
+
+    photo_base64 = None
+
+    if photo and photo.filename:
+
+        contenu = photo.read()
+
+        if len(contenu) <= 2 * 1024 * 1024:
+
+            photo_base64 = base64.b64encode(
+                contenu
+            ).decode("utf-8")
+
+    if titre and texte:
+
+        conn = sqlite3.connect(DB)
+
+        conn.execute(
+            """
+            INSERT INTO annonces
+            (titre, texte, photo)
+            VALUES (?, ?, ?)
+            """,
+            (titre, texte, photo_base64)
+        )
+
+        conn.commit()
+
+        conn.close()
+
+    return redirect("/dashboard")
+
+
+# =========================
+# SUPPRIMER
+# =========================
+
+@app.route("/supprimer/<int:identifiant>",
+           methods=["POST"])
+def supprimer(identifiant):
+
+    if not session.get("admin"):
+
+        return redirect("/admin")
+
+    conn = sqlite3.connect(DB)
+
+    conn.execute(
+        "DELETE FROM annonces WHERE id = ?",
+        (identifiant,)
+    )
+
+    conn.commit()
+
+    conn.close()
+
+    return redirect("/dashboard")
+
+
+# =========================
+# DÉCONNEXION
+# =========================
+
+@app.route("/logout")
+def logout():
+
+    session.clear()
+
+    return redirect("/admin")
+
+
+# =========================
+# DÉMARRAGE
+# =========================
+
+init_db()
+
+
+if __name__ == "__main__":
+
+    app.run(
+        host="0.0.0.0",
+        port=int(
+            os.environ.get("PORT", 8080)
+        )
+    )
