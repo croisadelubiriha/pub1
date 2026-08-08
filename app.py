@@ -1,7 +1,6 @@
 from flask import Flask, request, redirect, session
 import sqlite3
 import os
-import base64
 import html
 
 app = Flask(__name__)
@@ -12,20 +11,30 @@ ADMIN_PASS = "alkinge@"
 
 DB = "site.db"
 
+CATEGORIES = {
+    "servants": "👥 Servants",
+    "classement": "🏆 Classement",
+    "messes": "🕐 Messes",
+    "enseignements": "📚 Enseignements",
+    "croisade": "✝️ Croisade",
+    "prieres": "🙏 Prières",
+    "annonces": "📢 Annonces",
+    "diverses": "📰 Diverses"
+}
 
-# =========================
-# BASE DE DONNÉES
-# =========================
 
 def init_db():
     conn = sqlite3.connect(DB)
 
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS annonces (
+        CREATE TABLE IF NOT EXISTS contenus (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            categorie TEXT NOT NULL,
             titre TEXT NOT NULL,
             texte TEXT NOT NULL,
-            photo TEXT
+            photo TEXT,
+            audio TEXT,
+            video TEXT
         )
     """)
 
@@ -33,23 +42,27 @@ def init_db():
     conn.close()
 
 
-def annonces():
+def get_contenus(categorie):
     conn = sqlite3.connect(DB)
 
-    resultats = conn.execute(
-        "SELECT id, titre, texte, photo FROM annonces ORDER BY id DESC"
-    ).fetchall()
+    resultats = conn.execute("""
+        SELECT id, titre, texte, photo, audio, video
+        FROM contenus
+        WHERE categorie = ?
+        ORDER BY id DESC
+    """, (categorie,)).fetchall()
 
     conn.close()
 
     return resultats
 
 
-# =========================
-# DESIGN DU SITE
-# =========================
-
 def page(titre, contenu):
+
+    menu = ""
+
+    for url, nom in CATEGORIES.items():
+        menu += f'<a href="/{url}">{nom}</a>'
 
     return f"""
 <!DOCTYPE html>
@@ -62,112 +75,95 @@ def page(titre, contenu):
 <meta name="viewport"
 content="width=device-width, initial-scale=1">
 
-<title>{titre} - Croisade Eucharistique</title>
+<title>{html.escape(titre)}</title>
 
 <style>
 
 body {{
-    margin:0;
-    font-family:Arial,sans-serif;
-    background:#f2f2f2;
-    color:#222;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
 }}
 
 header {{
-    background:#123c69;
-    color:white;
-    text-align:center;
-    padding:25px 10px;
-}}
-
-header h1 {{
-    margin:10px 0;
+    background: #123c69;
+    color: white;
+    text-align: center;
+    padding: 25px 10px;
 }}
 
 nav {{
-    background:white;
-    padding:12px 5px;
-    text-align:center;
-    box-shadow:0 2px 5px #bbb;
+    background: white;
+    padding: 10px;
+    text-align: center;
 }}
 
 nav a {{
-    display:inline-block;
-    margin:5px;
-    padding:8px 10px;
-    text-decoration:none;
-    font-weight:bold;
-    color:#123c69;
-    border-radius:6px;
-}}
-
-nav a:hover {{
-    background:#123c69;
-    color:white;
+    display: inline-block;
+    margin: 4px;
+    padding: 8px;
+    text-decoration: none;
+    font-weight: bold;
+    color: #123c69;
 }}
 
 main {{
-    max-width:900px;
-    margin:auto;
-    padding:20px;
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
 }}
 
 .card {{
-    background:white;
-    padding:20px;
-    margin-bottom:18px;
-    border-radius:12px;
-    box-shadow:0 2px 7px #ccc;
-}}
-
-.card h2 {{
-    color:#123c69;
+    background: white;
+    padding: 20px;
+    margin-bottom: 18px;
+    border-radius: 12px;
+    box-shadow: 0 2px 7px #ccc;
 }}
 
 input,
-textarea {{
-    width:100%;
-    padding:12px;
-    margin:8px 0 15px;
-    box-sizing:border-box;
-    border:1px solid #ccc;
-    border-radius:6px;
+textarea,
+select {{
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    margin: 8px 0 15px;
 }}
 
 textarea {{
-    min-height:150px;
+    min-height: 150px;
 }}
 
 button {{
-    background:#123c69;
-    color:white;
-    border:0;
-    padding:12px 18px;
-    border-radius:6px;
-    cursor:pointer;
-}}
-
-button:hover {{
-    background:#0b2948;
+    background: #123c69;
+    color: white;
+    border: 0;
+    padding: 12px 18px;
+    border-radius: 6px;
 }}
 
 img {{
-    max-width:100%;
-    border-radius:10px;
-    margin-top:10px;
+    max-width: 100%;
+    border-radius: 10px;
+    margin-top: 10px;
+}}
+
+audio {{
+    width: 100%;
+    margin-top: 10px;
+}}
+
+video {{
+    width: 100%;
+    max-height: 500px;
+    margin-top: 10px;
 }}
 
 footer {{
-    background:#123c69;
-    color:white;
-    text-align:center;
-    padding:25px;
-    margin-top:30px;
-}}
-
-.menu-title {{
-    color:#123c69;
-    font-weight:bold;
+    background: #123c69;
+    color: white;
+    text-align: center;
+    padding: 25px;
 }}
 
 </style>
@@ -190,36 +186,21 @@ footer {{
 
 </header>
 
-
 <nav>
 
 <a href="/">🏠 Accueil</a>
 
-<a href="/servants">👥 Servants</a>
-
-<a href="/classement">🏆 Classement</a>
-
-<a href="/messes">🕐 Messes</a>
-
-<a href="/enseignements">📚 Enseignements</a>
-
-<a href="/croisade">✝️ Croisade</a>
-
-<a href="/prieres">🙏 Prières</a>
-
-<a href="/annonces">📢 Annonces</a>
+{menu}
 
 <a href="/admin">👑 Admin</a>
 
 </nav>
-
 
 <main>
 
 {contenu}
 
 </main>
-
 
 <footer>
 
@@ -241,361 +222,93 @@ footer {{
 """
 
 
-# =========================
-# ACCUEIL
-# =========================
+def afficher_contenus(categorie):
 
-@app.route("/")
-def accueil():
+    nom = CATEGORIES[categorie]
 
-    liste = ""
+    liste = get_contenus(categorie)
 
-    for identifiant, titre, texte, photo in annonces():
+    contenu = f"""
+    <div class="card">
+        <h2>{nom}</h2>
+        <p>Bienvenue dans cette rubrique.</p>
+    </div>
+    """
 
-        image = ""
+    if not liste:
+
+        contenu += """
+        <div class="card">
+            <p>Aucune publication pour le moment.</p>
+        </div>
+        """
+
+    for identifiant, titre, texte, photo, audio, video in liste:
+
+        media = ""
 
         if photo:
+            media += f"""
+            <img src="{html.escape(photo)}" alt="Photo">
+            """
 
-            image = f'''
-            <img src="data:image/jpeg;base64,{photo}">
-            '''
+        if audio:
+            media += f"""
+            <audio controls>
+                <source src="{html.escape(audio)}">
+            </audio>
+            """
 
-        liste += f"""
+        if video:
+            media += f"""
+            <video controls>
+                <source src="{html.escape(video)}">
+            </video>
+            """
 
+        contenu += f"""
         <div class="card">
 
-            <h2>📢 {html.escape(titre)}</h2>
+            <h2>{html.escape(titre)}</h2>
 
-            {image}
+            {media}
 
             <p>
             {html.escape(texte).replace(chr(10), "<br>")}
             </p>
 
         </div>
-
         """
 
-    if not liste:
+    return page(nom, contenu)
 
-        liste = """
-        <div class="card">
-            <p>Aucune annonce publiée pour le moment.</p>
-        </div>
-        """
 
-    return page(
-        "Accueil",
+@app.route("/")
+def accueil():
 
-        f"""
+    contenu = """
+    <div class="card">
 
-        <div class="card">
+        <h2>🙏 Bienvenue</h2>
 
-            <h2>🙏 Bienvenue</h2>
+        <p>
+        Bienvenue sur le site de la
+        <strong>Croisade Eucharistique</strong>.
+        </p>
 
-            <p>
-            Bienvenue sur le site officiel de la
-            <strong>Croisade Eucharistique</strong>.
-            </p>
+        <p>
+        Secteur Bon Berger Lubiriha.
+        </p>
 
-            <p>
-            Secteur Bon Berger Lubiriha,
-            Paroisse Saint Conrad Kasindi,
-            Diocèse de Butembo-Beni.
-            </p>
+        <p>
+        ✝️ Pour nous aussi, le Christ !
+        </p>
 
-        </div>
+    </div>
+    """
 
+    return page("Accueil", contenu)
 
-        <h2 class="menu-title">
-        📢 Dernières annonces
-        </h2>
-
-        {liste}
-
-        """
-    )
-
-
-# =========================
-# SERVANTS
-# =========================
-
-@app.route("/servants")
-def servants():
-
-    return page(
-        "Servants",
-
-        """
-
-        <div class="card">
-
-            <h2>👥 Servants de Messe</h2>
-
-            <p>
-            Bienvenue dans l'espace des servants
-            de la Croisade Eucharistique.
-            </p>
-
-            <h3>⛪ Notre mission</h3>
-
-            <p>
-            Servir Dieu avec foi, discipline,
-            respect et amour de l'Église.
-            </p>
-
-            <h3>📚 Formation</h3>
-
-            <p>
-            Les servants participent régulièrement
-            aux formations et activités de leur groupe.
-            </p>
-
-        </div>
-
-        <div class="card">
-
-            <h2>👤 Responsable</h2>
-
-            <p>
-            Les informations sur les responsables
-            et les différents servants seront ajoutées
-            prochainement.
-            </p>
-
-        </div>
-
-        """
-    )
-
-
-# =========================
-# CLASSEMENT
-# =========================
-
-@app.route("/classement")
-def classement():
-
-    return page(
-        "Classement",
-
-        """
-
-        <div class="card">
-
-            <h2>🏆 Classement des Servants</h2>
-
-            <p>
-            Cette page permettra de suivre
-            les résultats et le classement
-            des servants.
-            </p>
-
-        </div>
-
-        <div class="card">
-
-            <h3>🥇 1er</h3>
-            <p>À compléter</p>
-
-            <h3>🥈 2ème</h3>
-            <p>À compléter</p>
-
-            <h3>🥉 3ème</h3>
-            <p>À compléter</p>
-
-        </div>
-
-        """
-    )
-
-
-# =========================
-# MESSES
-# =========================
-
-@app.route("/messes")
-def messes():
-
-    return page(
-        "Messes",
-
-        """
-
-        <div class="card">
-
-            <h2>🕐 Horaires des Messes</h2>
-
-            <h3>📅 Lundi à Samedi</h3>
-
-            <p>
-            Messe : 06h00 - 07h00
-            </p>
-
-            <h3>🙏 Jeudi</h3>
-
-            <p>
-            Adoration : 14h30 - 15h00
-            </p>
-
-            <h3>📚 Formation des servants</h3>
-
-            <p>
-            Lundi et mercredi :
-            15h30 - selon le programme.
-            </p>
-
-        </div>
-
-        """
-    )
-
-
-# =========================
-# ENSEIGNEMENTS
-# =========================
-
-@app.route("/enseignements")
-def enseignements():
-
-    return page(
-        "Enseignements",
-
-        """
-
-        <div class="card">
-
-            <h2>📚 Enseignements</h2>
-
-            <p>
-            Retrouvez ici les enseignements
-            destinés aux servants et aux membres
-            de la Croisade Eucharistique.
-            </p>
-
-        </div>
-
-        <div class="card">
-
-            <h3>✝️ Foi catholique</h3>
-
-            <p>
-            Les enseignements seront publiés
-            progressivement.
-            </p>
-
-        </div>
-
-        """
-    )
-
-
-# =========================
-# CROISADE
-# =========================
-
-@app.route("/croisade")
-def croisade():
-
-    return page(
-        "Croisade",
-
-        """
-
-        <div class="card">
-
-            <h2>✝️ Croisade Eucharistique</h2>
-
-            <p>
-            La Croisade Eucharistique aide les enfants
-            et les jeunes à vivre leur foi chrétienne
-            autour de Jésus Eucharistie.
-            </p>
-
-            <h3>🙏 Notre engagement</h3>
-
-            <p>
-            Prier, communier, se former et servir
-            avec amour.
-            </p>
-
-        </div>
-
-        <div class="card">
-
-            <h3>⛪ Secteur Bon Berger Lubiriha</h3>
-
-            <p>
-            Paroisse Saint Conrad Kasindi
-            </p>
-
-            <p>
-            Diocèse de Butembo-Beni
-            </p>
-
-        </div>
-
-        """
-    )
-
-
-# =========================
-# PRIERES
-# =========================
-
-@app.route("/prieres")
-def prieres():
-
-    return page(
-        "Prières",
-
-        """
-
-        <div class="card">
-
-            <h2>🙏 Prières</h2>
-
-            <h3>✝️ Signe de croix</h3>
-
-            <p>
-            Au nom du Père, du Fils et du Saint-Esprit.
-            Amen.
-            </p>
-
-            <h3>🙏 Notre Père</h3>
-
-            <p>
-            Notre Père qui es aux cieux,
-            que ton nom soit sanctifié.
-            </p>
-
-            <h3>🌹 Je vous salue Marie</h3>
-
-            <p>
-            Je vous salue Marie,
-            pleine de grâce.
-            </p>
-
-        </div>
-
-        """
-    )
-
-
-# =========================
-# ANNONCES
-# =========================
-
-@app.route("/annonces")
-def page_annonces():
-
-    return accueil()
-
-
-# =========================
-# ADMIN
-# =========================
 
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
@@ -613,264 +326,182 @@ def admin():
 
         return page(
             "Erreur",
-
             """
-
             <div class="card">
-
                 <h2>❌ Identifiants incorrects</h2>
-
-                <a href="/admin">
-                Retour
-                </a>
-
+                <a href="/admin">Retour</a>
             </div>
-
             """
         )
 
     return page(
         "Administration",
-
         """
-
         <div class="card">
 
-        <h2>👑 Espace Administrateur</h2>
+            <h2>👑 Espace Administrateur</h2>
 
-        <form method="POST">
+            <form method="POST">
 
-        <label>
-        Nom administrateur
-        </label>
+                <label>Nom administrateur</label>
 
-        <input
-        type="text"
-        name="username"
-        required>
+                <input
+                    type="text"
+                    name="username"
+                    required>
 
-        <label>
-        Mot de passe
-        </label>
+                <label>Mot de passe</label>
 
-        <input
-        type="password"
-        name="password"
-        required>
+                <input
+                    type="password"
+                    name="password"
+                    required>
 
-        <button type="submit">
-        🔐 Connexion
-        </button>
+                <button type="submit">
+                    🔐 Connexion
+                </button>
 
-        </form>
+            </form>
 
         </div>
-
         """
     )
 
-
-# =========================
-# TABLEAU DE BORD
-# =========================
 
 @app.route("/dashboard")
 def dashboard():
 
     if not session.get("admin"):
-
         return redirect("/admin")
-
-    liste = ""
-
-    for identifiant, titre, texte, photo in annonces():
-
-        image = ""
-
-        if photo:
-
-            image = f'''
-            <img src="data:image/jpeg;base64,{photo}">
-            '''
-
-        liste += f"""
-
-        <div class="card">
-
-        <h3>
-        📢 {html.escape(titre)}
-        </h3>
-
-        {image}
-
-        <p>
-        {html.escape(texte).replace(chr(10), "<br>")}
-        </p>
-
-        <form method="POST"
-        action="/supprimer/{identifiant}">
-
-        <button type="submit">
-        🗑️ Supprimer
-        </button>
-
-        </form>
-
-        </div>
-
-        """
 
     return page(
         "Administration",
-
         f"""
-
         <div class="card">
 
-        <h2>👑 Tableau de bord</h2>
+            <h2>👑 Tableau de bord</h2>
 
-        <h3>
-        📢 Nouvelle publication
-        </h3>
+            <h3>➕ Nouvelle publication</h3>
 
-        <form method="POST"
-        action="/publier"
-        enctype="multipart/form-data">
+            <form method="POST"
+                  action="/publier">
 
-        <label>
-        Titre
-        </label>
+                <label>📂 Rubrique</label>
 
-        <input
-        type="text"
-        name="titre"
-        placeholder="Titre de l'annonce"
-        required>
+                <select name="categorie" required>
 
-        <label>
-        Information
-        </label>
+                    {
+                    ''.join(
+                        f'<option value="{c}">{n}</option>'
+                        for c, n in CATEGORIES.items()
+                    )
+                    }
 
-        <textarea
-        name="texte"
-        placeholder="Écris ton information ici..."
-        required></textarea>
+                </select>
 
-        <label>
-        📷 Photo
-        </label>
+                <label>📝 Titre</label>
 
-        <input
-        type="file"
-        name="photo"
-        accept="image/*">
+                <input
+                    type="text"
+                    name="titre"
+                    required>
 
-        <button type="submit">
-        📢 PUBLIER
-        </button>
+                <label>📄 Texte</label>
 
-        </form>
+                <textarea
+                    name="texte"
+                    required></textarea>
+
+                <label>🖼️ Lien de la photo</label>
+
+                <input
+                    type="url"
+                    name="photo"
+                    placeholder="https://...">
+
+                <label>🎵 Lien de l'audio</label>
+
+                <input
+                    type="url"
+                    name="audio"
+                    placeholder="https://...">
+
+                <label>🎥 Lien de la vidéo</label>
+
+                <input
+                    type="url"
+                    name="video"
+                    placeholder="https://...">
+
+                <button type="submit">
+                    📢 PUBLIER
+                </button>
+
+            </form>
 
         </div>
 
-
-        <h2>
-        📋 Publications
-        </h2>
-
-        {liste}
-
-
         <div class="card">
 
-        <a href="/logout">
-        🚪 Déconnexion
-        </a>
+            <h3>📋 Gestion des publications</h3>
+
+            <p>
+            Les publications sont enregistrées
+            dans la rubrique choisie.
+            </p>
 
         </div>
 
+        <div class="card">
+
+            <a href="/logout">
+                🚪 Déconnexion
+            </a>
+
+        </div>
         """
     )
 
-
-# =========================
-# PUBLIER
-# =========================
 
 @app.route("/publier", methods=["POST"])
 def publier():
 
     if not session.get("admin"):
-
         return redirect("/admin")
 
+    categorie = request.form.get("categorie", "")
     titre = request.form.get("titre", "").strip()
-
     texte = request.form.get("texte", "").strip()
+    photo = request.form.get("photo", "").strip()
+    audio = request.form.get("audio", "").strip()
+    video = request.form.get("video", "").strip()
 
-    photo = request.files.get("photo")
+    if categorie not in CATEGORIES:
+        return "Rubrique invalide", 400
 
-    photo_base64 = None
-
-    if photo and photo.filename:
-
-        contenu = photo.read()
-
-        if len(contenu) <= 2 * 1024 * 1024:
-
-            photo_base64 = base64.b64encode(
-                contenu
-            ).decode("utf-8")
-
-    if titre and texte:
-
-        conn = sqlite3.connect(DB)
-
-        conn.execute(
-            """
-            INSERT INTO annonces
-            (titre, texte, photo)
-            VALUES (?, ?, ?)
-            """,
-            (titre, texte, photo_base64)
-        )
-
-        conn.commit()
-
-        conn.close()
-
-    return redirect("/dashboard")
-
-
-# =========================
-# SUPPRIMER
-# =========================
-
-@app.route("/supprimer/<int:identifiant>",
-           methods=["POST"])
-def supprimer(identifiant):
-
-    if not session.get("admin"):
-
-        return redirect("/admin")
+    if not titre or not texte:
+        return "Titre et texte obligatoires", 400
 
     conn = sqlite3.connect(DB)
 
-    conn.execute(
-        "DELETE FROM annonces WHERE id = ?",
-        (identifiant,)
-    )
+    conn.execute("""
+        INSERT INTO contenus
+        (categorie, titre, texte, photo, audio, video)
+        VALUES (?, ?, ?, ?, ?, ?)
+    """, (
+        categorie,
+        titre,
+        texte,
+        photo or None,
+        audio or None,
+        video or None
+    ))
 
     conn.commit()
-
     conn.close()
 
     return redirect("/dashboard")
 
-
-# =========================
-# DÉCONNEXION
-# =========================
 
 @app.route("/logout")
 def logout():
@@ -880,9 +511,15 @@ def logout():
     return redirect("/admin")
 
 
-# =========================
-# DÉMARRAGE
-# =========================
+for categorie in CATEGORIES:
+
+    app.add_url_rule(
+        f"/{categorie}",
+        endpoint=f"page_{categorie}",
+        view_func=lambda categorie=categorie:
+            afficher_contenus(categorie)
+    )
+
 
 init_db()
 
@@ -891,7 +528,5 @@ if __name__ == "__main__":
 
     app.run(
         host="0.0.0.0",
-        port=int(
-            os.environ.get("PORT", 8080)
-        )
+        port=int(os.environ.get("PORT", 8080))
     )
