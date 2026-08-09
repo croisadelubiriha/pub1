@@ -1,16 +1,15 @@
 from flask import Flask, request, redirect, session
-import sqlite3
+import psycopg2
+import psycopg2.extras
 import os
 import html
 import base64
 
 app = Flask(__name__)
-app.secret_key = "change-cette-cle"
+app.secret_key = os.environ.get("SECRET_KEY", "change-cette-cle")
 
 ADMIN_USER = "kingereki"
 ADMIN_PASS = "alkinge@"
-
-DB = "site.db"
 
 CATEGORIES = {
     "servants": "👥 Servants",
@@ -24,12 +23,21 @@ CATEGORIES = {
 }
 
 
+def get_connection():
+    database_url = os.environ.get("DATABASE_URL")
+
+    if not database_url:
+        raise RuntimeError("DATABASE_URL n'est pas configurée.")
+
+    return psycopg2.connect(database_url)
+
+
 def init_db():
-    conn = sqlite3.connect(DB)
+    conn = get_connection()
 
     conn.execute("""
         CREATE TABLE IF NOT EXISTS contenus (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             categorie TEXT NOT NULL,
             titre TEXT NOT NULL,
             texte TEXT NOT NULL,
@@ -44,15 +52,20 @@ def init_db():
 
 
 def get_contenus(categorie):
-    conn = sqlite3.connect(DB)
+    conn = get_connection()
 
-    resultats = conn.execute("""
+    cur = conn.cursor()
+
+    cur.execute("""
         SELECT id, titre, texte, photo, audio, video
         FROM contenus
-        WHERE categorie = ?
+        WHERE categorie = %s
         ORDER BY id DESC
-    """, (categorie,)).fetchall()
+    """, (categorie,))
 
+    resultats = cur.fetchall()
+
+    cur.close()
     conn.close()
 
     return resultats
@@ -64,7 +77,6 @@ def fichier_base64(fichier):
 
     contenu = fichier.read()
 
-    # Limite de 10 MB par fichier
     if len(contenu) > 10 * 1024 * 1024:
         return None
 
@@ -403,16 +415,19 @@ def dashboard():
     if not session.get("admin"):
         return redirect("/admin")
 
-    toutes = []
+    conn = get_connection()
 
-    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
 
-    toutes = conn.execute("""
+    cur.execute("""
         SELECT id, categorie, titre, texte
         FROM contenus
         ORDER BY id DESC
-    """).fetchall()
+    """)
 
+    toutes = cur.fetchall()
+
+    cur.close()
     conn.close()
 
     liste = ""
@@ -556,32 +571,13 @@ def publier():
     if not session.get("admin"):
         return redirect("/admin")
 
-    categorie = request.form.get(
-        "categorie",
-        ""
-    )
+    categorie = request.form.get("categorie", "")
+    titre = request.form.get("titre", "").strip()
+    texte = request.form.get("texte", "").strip()
 
-    titre = request.form.get(
-        "titre",
-        ""
-    ).strip()
-
-    texte = request.form.get(
-        "texte",
-        ""
-    ).strip()
-
-    photo = fichier_base64(
-        request.files.get("photo")
-    )
-
-    audio = fichier_base64(
-        request.files.get("audio")
-    )
-
-    video = fichier_base64(
-        request.files.get("video")
-    )
+    photo = fichier_base64(request.files.get("photo"))
+    audio = fichier_base64(request.files.get("audio"))
+    video = fichier_base64(request.files.get("video"))
 
     if categorie not in CATEGORIES:
         return "Rubrique invalide", 400
@@ -589,12 +585,14 @@ def publier():
     if not titre or not texte:
         return "Titre et texte obligatoires", 400
 
-    conn = sqlite3.connect(DB)
+    conn = get_connection()
 
-    conn.execute("""
+    cur = conn.cursor()
+
+    cur.execute("""
         INSERT INTO contenus
         (categorie, titre, texte, photo, audio, video)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s)
     """, (
         categorie,
         titre,
@@ -605,6 +603,8 @@ def publier():
     ))
 
     conn.commit()
+
+    cur.close()
     conn.close()
 
     return redirect("/dashboard")
@@ -616,14 +616,18 @@ def supprimer(identifiant):
     if not session.get("admin"):
         return redirect("/admin")
 
-    conn = sqlite3.connect(DB)
+    conn = get_connection()
 
-    conn.execute(
-        "DELETE FROM contenus WHERE id = ?",
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM contenus WHERE id = %s",
         (identifiant,)
     )
 
     conn.commit()
+
+    cur.close()
     conn.close()
 
     return redirect("/dashboard")
@@ -635,14 +639,19 @@ def modifier(identifiant):
     if not session.get("admin"):
         return redirect("/admin")
 
-    conn = sqlite3.connect(DB)
+    conn = get_connection()
 
-    publication = conn.execute("""
+    cur = conn.cursor()
+
+    cur.execute("""
         SELECT id, categorie, titre, texte
         FROM contenus
-        WHERE id = ?
-    """, (identifiant,)).fetchone()
+        WHERE id = %s
+    """, (identifiant,))
 
+    publication = cur.fetchone()
+
+    cur.close()
     conn.close()
 
     if not publication:
@@ -650,20 +659,9 @@ def modifier(identifiant):
 
     if request.method == "POST":
 
-        categorie = request.form.get(
-            "categorie",
-            ""
-        )
-
-        titre = request.form.get(
-            "titre",
-            ""
-        ).strip()
-
-        texte = request.form.get(
-            "texte",
-            ""
-        ).strip()
+        categorie = request.form.get("categorie", "")
+        titre = request.form.get("titre", "").strip()
+        texte = request.form.get("texte", "").strip()
 
         if categorie not in CATEGORIES:
             return "Rubrique invalide", 400
@@ -671,12 +669,14 @@ def modifier(identifiant):
         if not titre or not texte:
             return "Titre et texte obligatoires", 400
 
-        conn = sqlite3.connect(DB)
+        conn = get_connection()
 
-        conn.execute("""
+        cur = conn.cursor()
+
+        cur.execute("""
             UPDATE contenus
-            SET categorie = ?, titre = ?, texte = ?
-            WHERE id = ?
+            SET categorie = %s, titre = %s, texte = %s
+            WHERE id = %s
         """, (
             categorie,
             titre,
@@ -685,6 +685,8 @@ def modifier(identifiant):
         ))
 
         conn.commit()
+
+        cur.close()
         conn.close()
 
         return redirect("/dashboard")
@@ -754,10 +756,7 @@ def modifier(identifiant):
 
     """
 
-    return page(
-        "Modifier",
-        contenu
-    )
+    return page("Modifier", contenu)
 
 
 @app.route("/logout")
@@ -786,4 +785,4 @@ if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 8080))
-    )
+        )
