@@ -1,12 +1,15 @@
 from flask import Flask, request, redirect, session
 import psycopg2
-import psycopg2.extras
 import os
 import html
 import base64
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "change-cette-cle")
+
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "change-cette-cle"
+)
 
 ADMIN_USER = "kingereki"
 ADMIN_PASS = "alkinge@"
@@ -23,19 +26,32 @@ CATEGORIES = {
 }
 
 
+# =========================
+# CONNEXION À POSTGRESQL
+# =========================
+
 def get_connection():
+
     database_url = os.environ.get("DATABASE_URL")
 
     if not database_url:
-        raise RuntimeError("DATABASE_URL n'est pas configurée.")
+        raise RuntimeError(
+            "DATABASE_URL n'est pas configurée dans Render."
+        )
 
     return psycopg2.connect(database_url)
 
 
-def init_db():
-    conn = get_connection()
+# =========================
+# CREATION DE LA TABLE
+# =========================
 
-    conn.execute("""
+def init_db():
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
         CREATE TABLE IF NOT EXISTS contenus (
             id SERIAL PRIMARY KEY,
             categorie TEXT NOT NULL,
@@ -48,12 +64,18 @@ def init_db():
     """)
 
     conn.commit()
+
+    cur.close()
     conn.close()
 
 
-def get_contenus(categorie):
-    conn = get_connection()
+# =========================
+# RECUPERER LES PUBLICATIONS
+# =========================
 
+def get_contenus(categorie):
+
+    conn = get_connection()
     cur = conn.cursor()
 
     cur.execute("""
@@ -71,27 +93,45 @@ def get_contenus(categorie):
     return resultats
 
 
+# =========================
+# FICHIER EN BASE64
+# =========================
+
 def fichier_base64(fichier):
+
     if not fichier or not fichier.filename:
         return None
 
     contenu = fichier.read()
 
+    # Limite de 10 MB
     if len(contenu) > 10 * 1024 * 1024:
         return None
 
-    return base64.b64encode(contenu).decode("utf-8")
+    return base64.b64encode(
+        contenu
+    ).decode("utf-8")
 
+
+# =========================
+# PAGE PRINCIPALE
+# =========================
 
 def page(titre, contenu):
 
     menu = ""
 
     for url, nom in CATEGORIES.items():
-        menu += f'<a href="/{url}">{nom}</a>'
+
+        menu += f"""
+        <a href="/{url}">
+            {nom}
+        </a>
+        """
 
     return f"""
 <!DOCTYPE html>
+
 <html lang="fr">
 
 <head>
@@ -118,6 +158,18 @@ header {{
     padding: 25px 10px;
 }}
 
+header p {{
+    margin: 6px;
+}}
+
+header h1 {{
+    margin: 12px 0 5px;
+}}
+
+header h2 {{
+    margin: 5px 0;
+}}
+
 nav {{
     background: white;
     padding: 10px;
@@ -127,10 +179,15 @@ nav {{
 nav a {{
     display: inline-block;
     margin: 4px;
-    padding: 8px;
+    padding: 9px;
     text-decoration: none;
     font-weight: bold;
     color: #123c69;
+    border-radius: 6px;
+}}
+
+nav a:hover {{
+    background: #eeeeee;
 }}
 
 main {{
@@ -154,6 +211,8 @@ select {{
     box-sizing: border-box;
     padding: 12px;
     margin: 8px 0 15px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
 }}
 
 textarea {{
@@ -167,6 +226,7 @@ button {{
     padding: 12px 18px;
     border-radius: 6px;
     margin: 4px;
+    cursor: pointer;
 }}
 
 .delete {{
@@ -179,6 +239,7 @@ button {{
 
 img {{
     max-width: 100%;
+    height: auto;
     border-radius: 10px;
     margin-top: 10px;
 }}
@@ -199,6 +260,7 @@ footer {{
     color: white;
     text-align: center;
     padding: 25px;
+    margin-top: 30px;
 }}
 
 </style>
@@ -255,32 +317,48 @@ footer {{
 """
 
 
+# =========================
+# AFFICHER PHOTO AUDIO VIDEO
+# =========================
+
 def afficher_media(photo, audio, video):
 
     media = ""
 
     if photo:
+
         media += f"""
-        <img src="data:image/jpeg;base64,{photo}"
-        alt="Photo">
+        <img
+            src="data:image/jpeg;base64,{photo}"
+            alt="Photo">
         """
 
     if audio:
+
         media += f"""
         <audio controls>
-            <source src="data:audio/mpeg;base64,{audio}">
+            <source
+                src="data:audio/mpeg;base64,{audio}">
+            Votre navigateur ne supporte pas l'audio.
         </audio>
         """
 
     if video:
+
         media += f"""
         <video controls>
-            <source src="data:video/mp4;base64,{video}">
+            <source
+                src="data:video/mp4;base64,{video}">
+            Votre navigateur ne supporte pas la vidéo.
         </video>
         """
 
     return media
 
+
+# =========================
+# AFFICHER UNE RUBRIQUE
+# =========================
 
 def afficher_contenus(categorie):
 
@@ -290,8 +368,13 @@ def afficher_contenus(categorie):
 
     contenu = f"""
     <div class="card">
+
         <h2>{nom}</h2>
-        <p>Bienvenue dans cette rubrique.</p>
+
+        <p>
+        Bienvenue dans cette rubrique.
+        </p>
+
     </div>
     """
 
@@ -299,35 +382,56 @@ def afficher_contenus(categorie):
 
         contenu += """
         <div class="card">
-            <p>Aucune publication pour le moment.</p>
-        </div>
-        """
-
-    for identifiant, titre, texte, photo, audio, video in liste:
-
-        media = afficher_media(photo, audio, video)
-
-        contenu += f"""
-        <div class="card">
-
-            <h2>{html.escape(titre)}</h2>
-
-            {media}
 
             <p>
-            {html.escape(texte).replace(chr(10), "<br>")}
+            Aucune publication pour le moment.
             </p>
 
         </div>
         """
 
-    return page(nom, contenu)
+    for identifiant, titre, texte, photo, audio, video in liste:
 
+        media = afficher_media(
+            photo,
+            audio,
+            video
+        )
+
+        contenu += f"""
+        <div class="card">
+
+            <h2>
+                {html.escape(titre)}
+            </h2>
+
+            {media}
+
+            <p>
+                {html.escape(texte).replace(
+                    chr(10),
+                    "<br>"
+                )}
+            </p>
+
+        </div>
+        """
+
+    return page(
+        nom,
+        contenu
+    )
+
+
+# =========================
+# ACCUEIL
+# =========================
 
 @app.route("/")
 def accueil():
 
     contenu = """
+
     <div class="card">
 
         <h2>🙏 Bienvenue</h2>
@@ -346,31 +450,61 @@ def accueil():
         </h3>
 
     </div>
+
     """
 
-    return page("Accueil", contenu)
+    return page(
+        "Accueil",
+        contenu
+    )
 
 
-@app.route("/admin", methods=["GET", "POST"])
+# =========================
+# ADMIN
+# =========================
+
+@app.route(
+    "/admin",
+    methods=["GET", "POST"]
+)
 def admin():
 
     if request.method == "POST":
 
-        username = request.form.get("username", "")
-        password = request.form.get("password", "")
+        username = request.form.get(
+            "username",
+            ""
+        )
 
-        if username == ADMIN_USER and password == ADMIN_PASS:
+        password = request.form.get(
+            "password",
+            ""
+        )
+
+        if (
+            username == ADMIN_USER
+            and password == ADMIN_PASS
+        ):
 
             session["admin"] = True
 
-            return redirect("/dashboard")
+            return redirect(
+                "/dashboard"
+            )
 
         return page(
             "Erreur",
             """
             <div class="card">
-                <h2>❌ Identifiants incorrects</h2>
-                <a href="/admin">Retour</a>
+
+                <h2>
+                    ❌ Identifiants incorrects
+                </h2>
+
+                <a href="/admin">
+                    Retour
+                </a>
+
             </div>
             """
         )
@@ -378,411 +512,14 @@ def admin():
     return page(
         "Administration",
         """
+
         <div class="card">
 
-            <h2>👑 Espace Administrateur</h2>
+            <h2>
+                👑 Espace Administrateur
+            </h2>
 
             <form method="POST">
 
-                <label>Nom administrateur</label>
-
-                <input
-                    type="text"
-                    name="username"
-                    required>
-
-                <label>Mot de passe</label>
-
-                <input
-                    type="password"
-                    name="password"
-                    required>
-
-                <button type="submit">
-                    🔐 Connexion
-                </button>
-
-            </form>
-
-        </div>
-        """
-    )
-
-
-@app.route("/dashboard")
-def dashboard():
-
-    if not session.get("admin"):
-        return redirect("/admin")
-
-    conn = get_connection()
-
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT id, categorie, titre, texte
-        FROM contenus
-        ORDER BY id DESC
-    """)
-
-    toutes = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    liste = ""
-
-    for identifiant, categorie, titre, texte in toutes:
-
-        nom_categorie = CATEGORIES.get(
-            categorie,
-            categorie
-        )
-
-        liste += f"""
-        <div class="card">
-
-            <h3>{html.escape(titre)}</h3>
-
-            <p>
-            <strong>{nom_categorie}</strong>
-            </p>
-
-            <p>
-            {html.escape(texte).replace(chr(10), "<br>")}
-            </p>
-
-            <a href="/modifier/{identifiant}">
-                <button class="edit">
-                    ✏️ Modifier
-                </button>
-            </a>
-
-            <form
-                method="POST"
-                action="/supprimer/{identifiant}"
-                style="display:inline;"
-                onsubmit="return confirm('Supprimer cette publication ?');">
-
-                <button
-                    type="submit"
-                    class="delete">
-
-                    🗑️ Supprimer
-
-                </button>
-
-            </form>
-
-        </div>
-        """
-
-    return page(
-        "Administration",
-        f"""
-
-        <div class="card">
-
-            <h2>👑 Tableau de bord</h2>
-
-            <h3>📢 Nouvelle publication</h3>
-
-            <form
-                method="POST"
-                action="/publier"
-                enctype="multipart/form-data">
-
-                <label>📂 Rubrique</label>
-
-                <select
-                    name="categorie"
-                    required>
-
-                    {
-                    ''.join(
-                        f'<option value="{c}">{n}</option>'
-                        for c, n in CATEGORIES.items()
-                    )
-                    }
-
-                </select>
-
-                <label>📝 Titre</label>
-
-                <input
-                    type="text"
-                    name="titre"
-                    required>
-
-                <label>📄 Texte</label>
-
-                <textarea
-                    name="texte"
-                    required></textarea>
-
-                <label>🖼️ Photo depuis le téléphone</label>
-
-                <input
-                    type="file"
-                    name="photo"
-                    accept="image/*">
-
-                <label>🎵 Audio depuis le téléphone</label>
-
-                <input
-                    type="file"
-                    name="audio"
-                    accept="audio/*">
-
-                <label>🎥 Vidéo depuis le téléphone</label>
-
-                <input
-                    type="file"
-                    name="video"
-                    accept="video/*">
-
-                <button type="submit">
-                    📢 PUBLIER
-                </button>
-
-            </form>
-
-        </div>
-
-        <h2>📋 Publications</h2>
-
-        {liste}
-
-        <div class="card">
-
-            <a href="/logout">
-                🚪 Déconnexion
-            </a>
-
-        </div>
-
-        """
-    )
-
-
-@app.route("/publier", methods=["POST"])
-def publier():
-
-    if not session.get("admin"):
-        return redirect("/admin")
-
-    categorie = request.form.get("categorie", "")
-    titre = request.form.get("titre", "").strip()
-    texte = request.form.get("texte", "").strip()
-
-    photo = fichier_base64(request.files.get("photo"))
-    audio = fichier_base64(request.files.get("audio"))
-    video = fichier_base64(request.files.get("video"))
-
-    if categorie not in CATEGORIES:
-        return "Rubrique invalide", 400
-
-    if not titre or not texte:
-        return "Titre et texte obligatoires", 400
-
-    conn = get_connection()
-
-    cur = conn.cursor()
-
-    cur.execute("""
-        INSERT INTO contenus
-        (categorie, titre, texte, photo, audio, video)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """, (
-        categorie,
-        titre,
-        texte,
-        photo,
-        audio,
-        video
-    ))
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return redirect("/dashboard")
-
-
-@app.route("/supprimer/<int:identifiant>", methods=["POST"])
-def supprimer(identifiant):
-
-    if not session.get("admin"):
-        return redirect("/admin")
-
-    conn = get_connection()
-
-    cur = conn.cursor()
-
-    cur.execute(
-        "DELETE FROM contenus WHERE id = %s",
-        (identifiant,)
-    )
-
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return redirect("/dashboard")
-
-
-@app.route("/modifier/<int:identifiant>", methods=["GET", "POST"])
-def modifier(identifiant):
-
-    if not session.get("admin"):
-        return redirect("/admin")
-
-    conn = get_connection()
-
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT id, categorie, titre, texte
-        FROM contenus
-        WHERE id = %s
-    """, (identifiant,))
-
-    publication = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    if not publication:
-        return "Publication introuvable", 404
-
-    if request.method == "POST":
-
-        categorie = request.form.get("categorie", "")
-        titre = request.form.get("titre", "").strip()
-        texte = request.form.get("texte", "").strip()
-
-        if categorie not in CATEGORIES:
-            return "Rubrique invalide", 400
-
-        if not titre or not texte:
-            return "Titre et texte obligatoires", 400
-
-        conn = get_connection()
-
-        cur = conn.cursor()
-
-        cur.execute("""
-            UPDATE contenus
-            SET categorie = %s, titre = %s, texte = %s
-            WHERE id = %s
-        """, (
-            categorie,
-            titre,
-            texte,
-            identifiant
-        ))
-
-        conn.commit()
-
-        cur.close()
-        conn.close()
-
-        return redirect("/dashboard")
-
-    _, categorie_actuelle, titre_actuel, texte_actuel = publication
-
-    options = ""
-
-    for c, n in CATEGORIES.items():
-
-        selected = ""
-
-        if c == categorie_actuelle:
-            selected = "selected"
-
-        options += f"""
-        <option value="{c}" {selected}>
-            {n}
-        </option>
-        """
-
-    contenu = f"""
-
-    <div class="card">
-
-        <h2>✏️ Modifier la publication</h2>
-
-        <form method="POST">
-
-            <label>📂 Rubrique</label>
-
-            <select
-                name="categorie"
-                required>
-
-                {options}
-
-            </select>
-
-            <label>📝 Titre</label>
-
-            <input
-                type="text"
-                name="titre"
-                value="{html.escape(titre_actuel)}"
-                required>
-
-            <label>📄 Texte</label>
-
-            <textarea
-                name="texte"
-                required>{html.escape(texte_actuel)}</textarea>
-
-            <button type="submit">
-                💾 Enregistrer
-            </button>
-
-        </form>
-
-        <br>
-
-        <a href="/dashboard">
-            ↩️ Retour
-        </a>
-
-    </div>
-
-    """
-
-    return page("Modifier", contenu)
-
-
-@app.route("/logout")
-def logout():
-
-    session.clear()
-
-    return redirect("/admin")
-
-
-for categorie in CATEGORIES:
-
-    app.add_url_rule(
-        f"/{categorie}",
-        endpoint=f"page_{categorie}",
-        view_func=lambda categorie=categorie:
-            afficher_contenus(categorie)
-    )
-
-
-init_db()
-
-
-if __name__ == "__main__":
-
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8080))
-        )
+                <label>
+                   
